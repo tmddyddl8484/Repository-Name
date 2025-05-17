@@ -1,0 +1,123 @@
+#include "raylib.h"
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+
+struct Raindrop {
+    Vector2 position;
+    float speed;
+    Color color;
+};
+
+Color GetRandomColor() {
+    return Color{
+        (unsigned char)GetRandomValue(50, 255),
+        (unsigned char)GetRandomValue(50, 255),
+        (unsigned char)GetRandomValue(50, 255),
+        255
+    };
+}
+
+int main() {
+    InitWindow(800, 600, "Rain Dodger");
+    SetTargetFPS(60);
+
+    Vector2 playerPos = { 400, 550 };
+    float playerSpeed = 5.0f;
+    float playerRadius = 20.0f;
+
+    std::vector<Raindrop> raindrops;
+    int score = 0;
+    bool gameOver = false;
+    float difficultyTimer = 0.0f;
+    float rainSpeedMultiplier = 1.0f;
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    while (!WindowShouldClose()) {
+        float deltaTime = GetFrameTime();
+
+        // 입력 처리
+        if (!gameOver) {
+            if (IsKeyDown(KEY_LEFT)) playerPos.x -= playerSpeed;
+            if (IsKeyDown(KEY_RIGHT)) playerPos.x += playerSpeed;
+
+            // 화면 밖 제한
+            if (playerPos.x < playerRadius) playerPos.x = playerRadius;
+            if (playerPos.x > 800 - playerRadius) playerPos.x = 800 - playerRadius;
+
+            // 난이도 증가
+            difficultyTimer += deltaTime;
+            if (difficultyTimer > 5.0f) {
+                rainSpeedMultiplier += 0.2f;
+                difficultyTimer = 0.0f;
+            }
+
+            // 비 생성
+            if (GetRandomValue(0, 20) == 0) {
+                Color dropColor = (score >= 1000) ? GetRandomColor() : SKYBLUE;
+                Raindrop drop = {
+                    { (float)GetRandomValue(0, 800), 0 },
+                    (2.0f + GetRandomValue(0, 5)) * rainSpeedMultiplier,
+                    dropColor
+                };
+                raindrops.push_back(drop);
+            }
+
+            // 비 이동 및 충돌 체크
+            for (auto& drop : raindrops) {
+                drop.position.y += drop.speed;
+                if (CheckCollisionCircles(playerPos, playerRadius, drop.position, 10)) {
+                    gameOver = true;
+                }
+            }
+
+            // 점수 증가
+            score++;
+        }
+        else {
+            // R 키로 재시작
+            if (IsKeyPressed(KEY_R)) {
+                gameOver = false;
+                score = 0;
+                playerPos = { 400, 550 };
+                raindrops.clear();
+                rainSpeedMultiplier = 1.0f;
+                difficultyTimer = 0.0f;
+            }
+        }
+
+        // 렌더링
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        if (!gameOver) {
+            // 플레이어
+            DrawCircleV(playerPos, playerRadius, RED);
+
+            // 물방울
+            for (const auto& drop : raindrops) {
+                DrawCircleV(drop.position, 10, drop.color);
+            }
+
+            // 점수 2000 이상 → 화면 중앙에 투명 띠
+            if (score >= 2000) {
+                DrawRectangle(0, 200, 800, 200, Fade(BLACK, 0.8f));  // 80% 불투명
+            }
+
+            // UI
+            DrawText(TextFormat("Score: %d", score), 10, 10, 20, WHITE);
+            DrawText("Press [R] to Restart (after Game Over)", 10, 40, 15, GRAY);
+        }
+        else {
+            DrawText("GAME OVER", 300, 250, 40, RED);
+            DrawText(TextFormat("Final Score: %d", score), 300, 300, 20, WHITE);
+            DrawText("Press [R] to Restart", 300, 340, 20, LIGHTGRAY);
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+    return 0;
+}
